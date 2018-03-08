@@ -3,8 +3,7 @@
 # Licensed under Simplified BSD License (see LICENSE)
 
 from datadog_checks.checks import AgentCheck
-from . import mesh, mixer
-from datadog_checks.check.prometheus.base_check import Scraper
+from datadog_checks.checks.prometheus import Scraper, PrometheusCheck
 
 
 class Istio(PrometheusCheck):
@@ -47,10 +46,10 @@ class Istio(PrometheusCheck):
         endpoint = instance.get('istio_mesh_endpoint')
 
         if self.scrapers.get(endpoint, None):
-            return self.scrapers.get(istio_mesh_endpoint)
+            return self.scrapers.get(endpoint)
 
         scraper = Scraper(self)
-        self.scrapers[endpoint] = istio_mesh_scraper
+        self.scrapers[endpoint] = scraper
         scraper.NAMESPACE = self.mesh_namespace
         scraper.metrics_mapper = {
             'istio_request_count': 'request.count',
@@ -66,7 +65,7 @@ class Istio(PrometheusCheck):
     def get_mixer_scraper(self, instance):
         endpoint = instance.get('mixer_endpoint')
         if self.scrapers.get(endpoint, None):
-            return self.scrapers.get(mixer_endpoint)
+            return self.scrapers.get(endpoint)
         scraper = Scraper(self)
         self.scrapers[endpoint] = scraper
         scraper.NAMESPACE = self.mixer_namespace
