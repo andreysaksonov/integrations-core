@@ -1,5 +1,5 @@
 {
-  "manifest_version": "0.1.1",
+  "manifest_version": "1.0.0",
   "name": "istio",
   "display_name": "istio",
   "support": "core",
@@ -8,8 +8,6 @@
     "mac_os",
     "windows"
   ],
-  "max_agent_version": "6.0.0",
-  "min_agent_version": "5.6.3",
   "maintainer": "help@datadoghq.com",
   "short_description": "Collect performance schema metrics, query throughput, custom metrics, and more.",
   "description": "The istio integration collects data from the istio service mesh and mixer.",

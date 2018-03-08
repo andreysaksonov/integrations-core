@@ -2,7 +2,6 @@
 # All rights reserved
 # Licensed under Simplified BSD License (see LICENSE)
 
-from datadog_checks.checks import AgentCheck
 from datadog_checks.checks.prometheus import Scraper, PrometheusCheck
 
 
