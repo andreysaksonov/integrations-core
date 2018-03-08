@@ -4,12 +4,15 @@
 
 from datadog_checks.checks import AgentCheck
 from . import mesh, mixer
+from datadog_checks.check.prometheus.base_check import Scraper
 
 
 class Istio(AgentCheck):
 
     def __init__(self, name, init_config, agentConfig, instances=None):
         super(Istio, self).__init__(name, init_config, agentConfig, instances)
+
+        self.scrapers = {}
 
         # Instead of one check, use three
         self.mesh_check = mesh.IstioMeshCheck(name, init_config, agentConfig, instances)
@@ -32,6 +35,21 @@ class Istio(AgentCheck):
     def check(self, instance):
         self.log.debug('running all istio checks')
 
-        # run the checks
-        for check in self.checks:
-            check.check(instance)
+        istio_mesh_endpoint = instance.get('istio_mesh_endpoint')
+        mixer_endpoint = instance.get('mixer_endpoint')
+
+        if not self.scrapers.get(istio_mesh_endpoint, None):
+            istio_mesh_scraper = Scraper(self)
+            self.scrapers[istio_mesh_endpoint] = istio_mesh_scraper
+        else:
+            istio_mesh_scraper = self.scrapers.get(istio_mesh_endpoint)
+
+        if not self.scrapers.get(mixer_endpoint, None):
+            mixer_scraper = Scraper(self)
+            self.scrapers[mixer_endpoint] = mixer_scraper
+        else:
+            mixer_scraper = self.scrapers.get(mixer_endpoint)
+
+        # # run the checks
+        # for check in self.checks:
+        #     check.check(instance)
