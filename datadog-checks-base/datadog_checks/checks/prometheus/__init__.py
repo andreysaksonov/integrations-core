@@ -20,5 +20,6 @@ __all__ = [
     'PrometheusFormat',
     'UnknownFormatError',
     'PrometheusCheck',
-    'GenericPrometheusCheck'
+    'GenericPrometheusCheck',
+    'Scraper'
 ]
