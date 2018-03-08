@@ -7,49 +7,130 @@ from . import mesh, mixer
 from datadog_checks.check.prometheus.base_check import Scraper
 
 
-class Istio(AgentCheck):
+class Istio(PrometheusCheck):
 
     def __init__(self, name, init_config, agentConfig, instances=None):
         super(Istio, self).__init__(name, init_config, agentConfig, instances)
-
+        self.mixer_namespace = 'istio.mixer'
+        self.mesh_namespace = 'istio.mesh'
         self.scrapers = {}
 
-        # Instead of one check, use three
-        self.mesh_check = mesh.IstioMeshCheck(name, init_config, agentConfig, instances)
-        self.mixer_check = mixer.MixerCheck(name, init_config, agentConfig, instances)
-
-        # Put them in an array, so that duplicate actions are easier
-        self.checks = [self.mesh_check, self.mixer_check]
-
-        # Agent 6 has no aggregator attached to the check
-        try:
-            # Make sure they all have the same aggregator so that the status page works
-            for check in self.checks:
-                check.aggregator = self.aggregator
-        except AttributeError:
-            # This means this is either run in Agent 6 or in the tests
-            pass
-
-
-
     def check(self, instance):
-        self.log.debug('running all istio checks')
+        self.process_istio_mesh(instance)
+        self.process_mixer(instance)
 
-        istio_mesh_endpoint = instance.get('istio_mesh_endpoint')
-        mixer_endpoint = instance.get('mixer_endpoint')
+    def process_istio_mesh(self, instance):
+        self.log.debug('setting up mesh scraper')
+        endpoint = instance.get('istio_mesh_endpoint')
+        scraper = self.get_istio_mesh_scraper(instance)
+        self.log.debug('processing mesh metrics')
+        scraper.process(
+            endpoint,
+            send_histograms_buckets=instance.get('send_histograms_buckets', True),
+            instance=instance,
+            ignore_unmapped=True
+        )
 
-        if not self.scrapers.get(istio_mesh_endpoint, None):
-            istio_mesh_scraper = Scraper(self)
-            self.scrapers[istio_mesh_endpoint] = istio_mesh_scraper
-        else:
-            istio_mesh_scraper = self.scrapers.get(istio_mesh_endpoint)
+    def process_mixer(self, instance):
+        self.log.debug('setting up mixer scraper')
+        endpoint = instance.get('mixer_endpoint')
+        scraper = self.get_mixer_scraper(instance)
+        self.log.debug('processing mixer metrics')
+        scraper.process(
+            endpoint,
+            send_histograms_buckets=instance.get('send_histograms_buckets', True),
+            instance=instance,
+            ignore_unmapped=True
+        )
 
-        if not self.scrapers.get(mixer_endpoint, None):
-            mixer_scraper = Scraper(self)
-            self.scrapers[mixer_endpoint] = mixer_scraper
-        else:
-            mixer_scraper = self.scrapers.get(mixer_endpoint)
+    def get_istio_mesh_scraper(self, instance):
+        endpoint = instance.get('istio_mesh_endpoint')
 
-        # # run the checks
-        # for check in self.checks:
-        #     check.check(instance)
+        if self.scrapers.get(endpoint, None):
+            return self.scrapers.get(istio_mesh_endpoint)
+
+        scraper = Scraper(self)
+        self.scrapers[endpoint] = istio_mesh_scraper
+        scraper.NAMESPACE = self.mesh_namespace
+        scraper.metrics_mapper = {
+            'istio_request_count': 'request.count',
+            'istio_request_duration': 'request.duration',
+            'istio_request_size': 'request.size',
+            'istio_response_size': 'response.size',
+        }
+        scraper.label_to_hostname = endpoint
+        scraper = self.shared_scraper_config(scraper, instance)
+
+        return scraper
+
+    def get_mixer_scraper(self, instance):
+        endpoint = instance.get('mixer_endpoint')
+        if self.scrapers.get(endpoint, None):
+            return self.scrapers.get(mixer_endpoint)
+        scraper = Scraper(self)
+        self.scrapers[endpoint] = scraper
+        scraper.NAMESPACE = self.mixer_namespace
+        scraper.metrics_mapper = {
+            'go_gc_duration_seconds': 'go.gc_duration_seconds',
+            'go_goroutines': 'go.goroutines',
+            'go_info': 'go.info',
+            'go_memstats_alloc_bytes': 'go.memstats.alloc_bytes',
+            'go_memstats_alloc_bytes_total': 'go.memstats.alloc_bytes_total',
+            'go_memstats_buck_hash_sys_bytes': 'go.memstats.buck_hash_sys_bytes',
+            'go_memstats_frees_total': 'go.memstats.frees_total',
+            'go_memstats_gc_cpu_fraction': 'go.memstats.gc_cpu_fraction',
+            'go_memstats_gc_sys_bytes': 'go.memstats.gc_sys_bytes',
+            'go_memstats_heap_alloc_bytes': 'go.memstats.heap_alloc_bytes',
+            'go_memstats_heap_idle_bytes': 'go.memstats.heap_idle_bytes',
+            'go_memstats_heap_inuse_bytes': 'go.memstats.heap_inuse_bytes',
+            'go_memstats_heap_objects': 'go.memstats.heap_objects',
+            'go_memstats_heap_released_bytes': 'go.memstats.heap_released_bytes',
+            'go_memstats_heap_sys_bytes': 'go.memstats.heap_sys_bytes',
+            'go_memstats_last_gc_time_seconds': 'go.memstats.last_gc_time_seconds',
+            'go_memstats_lookups_total': 'go.memstats.lookups_total',
+            'go_memstats_mallocs_total': 'go.memstats.mallocs_total',
+            'go_memstats_mcache_inuse_bytes': 'go.memstats.mcache_inuse_bytes',
+            'go_memstats_mcache_sys_bytes': 'go.memstats.mcache_sys_bytes',
+            'go_memstats_mspan_inuse_bytes': 'go.memstats.mspan_inuse_bytes',
+            'go_memstats_mspan_sys_bytes': 'go.memstats.mspan_sys_bytes',
+            'go_memstats_next_gc_bytes': 'go.memstats.next_gc_bytes',
+            'go_memstats_other_sys_bytes': 'go.memstats.other_sys_bytes',
+            'go_memstats_stack_inuse_bytes': 'go.memstats.stack_inuse_bytes',
+            'go_memstats_stack_sys_bytes': 'go.memstats.stack_sys_bytes',
+            'go_memstats_sys_bytes': 'go.memstats.sys_bytes',
+            'go_threads': 'go.threads',
+            'grpc_server_handled_total': 'grpc.server.handled_total',
+            'grpc_server_handling_seconds': 'grpc.server.handling_seconds',
+            'grpc_server_msg_received_total': 'grpc.server.msg_received_total',
+            'grpc_server_msg_sent_total': 'grpc.server.msg_sent_total',
+            'grpc_server_started_total': 'grpc.server.started_total',
+            'mixer_adapter_dispatch_count': 'adapter.dispatch_count',
+            'mixer_adapter_dispatch_duration': 'adapter.dispatch_duration',
+            'mixer_adapter_old_dispatch_count': 'adapter.old_dispatch_count',
+            'mixer_adapter_old_dispatch_duration': 'adapter.old_dispatch_duration',
+            'mixer_config_resolve_actions': 'config.resolve_actions',
+            'mixer_config_resolve_count': 'config.resolve_count',
+            'mixer_config_resolve_duration': 'config.resolve_duration',
+            'mixer_config_resolve_rules': 'config.resolve_rules',
+            'process_cpu_seconds_total': 'process.cpu_seconds_total',
+            'process_max_fds': 'process.max_fds',
+            'process_open_fds': 'process.open_fds',
+            'process_resident_memory_bytes': 'process.resident_memory_bytes',
+            'process_start_time_seconds': 'process.start_time_seconds',
+            'process_virtual_memory_bytes': 'process.virtual_memory_bytes',
+        }
+        scraper = self.shared_scraper_config(scraper, instance)
+        return scraper
+
+    def shared_scraper_config(self, scraper, instance):
+        scraper.labels_mapper = instance.get("labels_mapper", {})
+        scraper.label_joins = instance.get("label_joins", {})
+        scraper.type_overrides = instance.get("type_overrides", {})
+        scraper.exclude_labels = instance.get("exclude_labels", [])
+        # For simple values instance settings overrides optional defaults
+        scraper.health_service_check = instance.get("health_service_check", True)
+        scraper.ssl_cert = instance.get("ssl_cert", None)
+        scraper.ssl_private_key = instance.get("ssl_private_key", None)
+        scraper.ssl_ca_cert = instance.get("ssl_ca_cert", None)
+
+        return scraper
