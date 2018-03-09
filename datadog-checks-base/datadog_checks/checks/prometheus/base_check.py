@@ -110,6 +110,7 @@ class GenericPrometheusCheck(AgentCheck):
         scraper.type_overrides.update(instance.get("type_overrides", {}))
         scraper.exclude_labels = default_instance.get("exclude_labels", []) + instance.get("exclude_labels", [])
         # For simple values instance settings overrides optional defaults
+        scraper.prometheus_metrics_prefix = instance.get("prometheus_metrics_prefix", default_instance.get("prometheus_metrics_prefix", ''))
         scraper.label_to_hostname = instance.get("label_to_hostname", default_instance.get("prometheus_url", ""))
         scraper.health_service_check = instance.get("health_service_check", default_instance.get("health_service_check", True))
         scraper.ssl_cert = instance.get("ssl_cert", default_instance.get("ssl_cert", None))
